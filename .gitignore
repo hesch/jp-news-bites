@@ -8,3 +8,4 @@ venv/
 # Project files
 config.json
 podcast_data/
+cron-script.sh
