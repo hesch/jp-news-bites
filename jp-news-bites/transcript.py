@@ -1,4 +1,7 @@
 import openai
+import logging
+
+log = logging.getLogger(__name__)
 
 
 def transcribe_audio_clip(clip_path):
@@ -24,7 +27,7 @@ def transcript_to_str(t):
 
 def classify_segments(transcript):
     transcript_string = transcript_to_str(transcript)
-    print(transcript_string)
+    log.debug(transcript_string)
     system_message = """
 You are a language model tasked with analyzing podcast transcripts in Japanese.
 Your goal is to identify the start and end segments of each news story within the transcript.

@@ -1,6 +1,9 @@
 import os
+import logging
 from pydub import AudioSegment
 from transcript import transcript_output
+
+log = logging.getLogger(__name__)
 
 
 def extract_first_10_minutes(config, audio_file_path):
@@ -27,14 +30,14 @@ def segment_audio(config, audio, segment_data, story_data, slug):
 
         # Export the clip
         clip.export(audio_output_file_path, format="mp3")
-        print(f"Saved clip: {audio_output_file_path}")
+        log.info(f"Saved clip: {audio_output_file_path}")
 
         # Export the transcript
         transcript = transcript_output(
             segment_data, story["start_index"], story["end_index"])
         with open(transcript_output_file_path, "w") as tf:
             tf.write(transcript)
-        print(f"Saved transcript: {transcript_output_file_path}")
+        log.info(f"Saved transcript: {transcript_output_file_path}")
         episodes.append({
             "title": story["title"],
             "number": i,

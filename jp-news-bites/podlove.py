@@ -1,8 +1,11 @@
 import os
+import logging
 import requests
 from requests.auth import HTTPBasicAuth
 import paramiko
 import transcript
+
+log = logging.getLogger(__name__)
 
 
 def upload_media_files(conf, paths):
@@ -28,18 +31,19 @@ def upload_media_files(conf, paths):
             # Upload the file
             file_name = os.path.basename(path)
             sftp.put(path, conf.media_server.remote_dir + file_name)
-            print(f"Successfully uploaded {path} to {
-                  conf.media_server.remote_dir}")
+            log.info(f"Successfully uploaded {path} to {
+                conf.media_server.remote_dir}")
 
         # Close the SFTP session and SSH connection
         sftp.close()
         ssh.close()
     except Exception as e:
-        print(f"Failed to upload file: {e}")
-        print("Exception occurred:")
-        print("Type:", type(e))
-        print("Arguments:", e.args)
-        print("Exception message:", str(e))
+        log.error(f"Failed to upload file: {e}")
+        log.error("Exception occurred:")
+        log.error("Type:", type(e))
+        log.error("Arguments:", e.args)
+        log.error("Exception message:", str(e))
+        raise e
 
 
 def create_episode_wp(conf, original_title, original_link, episode):
@@ -57,10 +61,10 @@ def create_episode_wp(conf, original_title, original_link, episode):
                              headers=headers, auth=auth)
 
     if response.status_code == 201:
-        print("Episode created successfully!")
+        log.info("Episode created successfully!")
     else:
-        print(f"Failed to create episode: {response.status_code}")
-        print(response.json())
+        log.error(f"Failed to create episode: {response.status_code}")
+        log.debug(response.json())
         return
 
     episode_id = response.json()["id"]
@@ -84,18 +88,18 @@ You can find it here: <a href="{original_link}">{original_link}</a>
     response = requests.put(f"{conf.podlove.url}{
                             endpoint}/{episode_id}", json=episode_data, headers=headers, auth=auth)
     if response.status_code == 200:
-        print("Episode data set!")
+        log.info("Episode data set!")
     else:
-        print(f"Failed set episode data: {response.status_code}")
-        print(response.json())
+        log.error(f"Failed set episode data: {response.status_code}")
+        log.debug(response.json())
         return
 
     # Get the episode to find the wordpress post id
     response = requests.get(f"{conf.podlove.url}{
                             endpoint}/{episode_id}", auth=auth)
     if response.status_code != 200:
-        print(f"Failed to get episode id: {response.status_code}")
-        print(response.json())
+        log.error(f"Failed to get episode id: {response.status_code}")
+        log.debug(response.json())
         return
     wp_episode_id = response.json()["post_id"]
 
@@ -119,10 +123,10 @@ You can find it here: <a href="{original_link}">{original_link}</a>
         auth=auth
     )
     if response.status_code == 200:
-        print("Episode published successfully!")
+        log.info("Episode published successfully!")
     else:
-        print(f"Failed to publish episode: {response.status_code}")
-        print(response.json())
+        log.error(f"Failed to publish episode: {response.status_code}")
+        log.debug(response.json())
         return
 
     return response
