@@ -1,0 +1,17 @@
+{
+  "output_dir": "podcast_data",
+  "openai_api_key": "",
+  "rss_feed_url": "https://www.omnycontent.com/d/playlist/92f07af0-df9c-498e-a68a-ab4201477bd9/f12d9b7c-196b-4569-8639-ac05007c89f1/554d091d-7f51-412a-aaec-ad9c00d712e5/podcast.rss",
+  "podlove": {
+    "url": "https://learn-jp-news.com",
+    "user": "",
+    "password": ""
+  },
+  "media_server": {
+    "host": "",
+    "port": 0,
+    "user": "",
+    "ssh_key_path": "",
+    "remote_dir": ""
+  }
+}
