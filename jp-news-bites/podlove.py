@@ -1,4 +1,5 @@
 import os
+import time
 import logging
 import requests
 from requests.auth import HTTPBasicAuth
@@ -30,7 +31,24 @@ def upload_media_files(conf, paths):
         for path in paths:
             # Upload the file
             file_name = os.path.basename(path)
-            sftp.put(path, conf.media_server.remote_dir + file_name)
+            remote_file_path = conf.media_server.remote_dir + file_name
+
+            # Check if the file already exists on the remote server
+            try:
+                remote_file_size = sftp.stat(remote_file_path).st_size
+                local_file_size = os.path.getsize(path)
+                if remote_file_size == local_file_size:
+                    log.info(f"File {
+                             path} already exists on the server and is the same size. Skipping upload.")
+                    continue
+                else:
+                    log.info(
+                        f"File {path} exists on the server but has a different size. Re-uploading.")
+            except FileNotFoundError:
+                log.info(
+                    f"File {path} does not exist on the server. Uploading.")
+
+            sftp.put(path, remote_file_path)
             log.info(f"Successfully uploaded {path} to {
                 conf.media_server.remote_dir}")
 
@@ -46,9 +64,7 @@ def upload_media_files(conf, paths):
         raise e
 
 
-def create_episode_wp(conf, original_title, original_link, episode):
-    endpoint = "/wp-json/podlove/v2/episodes"
-
+def request_with_retry(conf, method, url, body=None):
     # General params for the connection
     headers = {
         'Content-Type': 'application/json'
@@ -56,9 +72,21 @@ def create_episode_wp(conf, original_title, original_link, episode):
 
     auth = HTTPBasicAuth(conf.podlove.user, conf.podlove.password)
 
+    sleep = 1
+    while (sleep < 16):
+        try:
+            return requests.request(method, url, headers=headers, auth=auth, json=body)
+        except Exception as e:
+            log.error(f"exception while doing request {method} {url}", e)
+            time.sleep(sleep)
+            sleep *= 2
+
+
+def create_episode_wp(conf, original_title, original_link, episode):
+    endpoint = "/wp-json/podlove/v2/episodes"
+
     # Create episode draft
-    response = requests.post(conf.podlove.url + endpoint,
-                             headers=headers, auth=auth)
+    response = request_with_retry(conf, 'POST', conf.podlove.url + endpoint)
 
     if response.status_code == 201:
         log.info("Episode created successfully!")
@@ -85,8 +113,12 @@ You can find it here: <a href="{original_link}">{original_link}</a>
     }
 
     # Populate the episode with data
-    response = requests.put(f"{conf.podlove.url}{
-                            endpoint}/{episode_id}", json=episode_data, headers=headers, auth=auth)
+    response = request_with_retry(
+        conf,
+        'PUT',
+        f"{conf.podlove.url}{endpoint}/{episode_id}",
+        episode_data
+    )
     if response.status_code == 200:
         log.info("Episode data set!")
     else:
@@ -95,8 +127,12 @@ You can find it here: <a href="{original_link}">{original_link}</a>
         return
 
     # Get the episode to find the wordpress post id
-    response = requests.get(f"{conf.podlove.url}{
-                            endpoint}/{episode_id}", auth=auth)
+    response = request_with_retry(
+        conf,
+        'GET',
+        f"{conf.podlove.url}{endpoint}/{episode_id}"
+    )
+
     if response.status_code != 200:
         log.error(f"Failed to get episode id: {response.status_code}")
         log.debug(response.json())
@@ -104,23 +140,23 @@ You can find it here: <a href="{original_link}">{original_link}</a>
     wp_episode_id = response.json()["post_id"]
 
     post_endpoint = "/wp-json/wp/v2/episodes"
-    response = requests.get(
+    response = request_with_retry(
+        conf,
+        'GET',
         f"{conf.podlove.url}{post_endpoint}/{wp_episode_id}",
-        headers=headers,
-        auth=auth
     )
 
     post_content = response.json()["content"]
     post_content["rendered"] += episode_data["summary"]
     # Publish the episode
-    response = requests.post(
+    response = request_with_retry(
+        conf,
+        'POST',
         f"{conf.podlove.url}{post_endpoint}/{wp_episode_id}",
-        json={
+        {
             "status": "publish",
             "content": post_content,
         },
-        headers=headers,
-        auth=auth
     )
     if response.status_code == 200:
         log.info("Episode published successfully!")
